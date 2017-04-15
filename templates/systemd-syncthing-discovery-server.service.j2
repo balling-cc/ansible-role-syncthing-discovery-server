@@ -1,0 +1,13 @@
+[Unit]
+Description=Syncthing Discovery Server - Open Source Continuous File Synchronization
+After=network.target
+
+[Service]
+ExecStart={{ syncthing_discovery_server_path }}/stdiscosrv -http
+Restart=on-failure
+SuccessExitStatus=3 4
+RestartForceExitStatus=3 4
+
+[Install]
+WantedBy=multi-user.target
+Alias=stdiscosrv

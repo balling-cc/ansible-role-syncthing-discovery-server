@@ -1,0 +1,69 @@
+---
+- name: Update apt cache
+  apt: update_cache=yes cache_valid_time=3600
+
+- name: Install python-requests
+  apt:
+    name: "{{ item }}"
+    state: installed
+  with_items:
+    - python-requests
+
+- name: Make script to get latest stdiscosrv version
+  template:
+    src: get_latest_syncthing_discovery_server_version.py.j2
+    dest: /tmp/get_latest_syncthing_discovery_server_version.py
+
+- name: Get latest stdiscosrv version
+  command: python /tmp/get_latest_syncthing_discovery_server_version.py
+  register: stdiscosrv_ver
+  failed_when: stdiscosrv_ver.rc > 0
+  changed_when: no
+
+- name: Set stdiscosrv version variable
+  set_fact:
+    syncthing_discovery_server_version: "{{ stdiscosrv_ver.stdout }}"
+  when: stdiscosrv_ver.rc == 0
+
+- name: Check if stdiscosrv is installed
+  raw: test -f {{ syncthing_discovery_server_path }}/stdiscosrv
+  register: stdiscosrv_file
+  ignore_errors: True
+
+- name: Create stdiscosrv binary directory
+  file: path={{ syncthing_discovery_server_path }} state=directory owner=root group=root mode=0755
+  when: stdiscosrv_file|failed
+
+- name: Download latest stdiscosrv version
+  get_url:
+    url: "{{ syncthing_discovery_server_download_url }}/artifact/{{ syncthing_discovery_server_version }}.tar.gz"
+    dest: /tmp/stdiscosrv.tar.gz
+    validate_certs: False
+  when: stdiscosrv_file|failed
+
+- name: Unpack stdiscosrv
+  raw: tar xpzf /tmp/stdiscosrv.tar.gz -C /tmp/
+  when: stdiscosrv_file|failed
+
+- name: Copy stdiscosrv binary
+  copy:
+    remote_src: True
+    src: "/tmp/{{ syncthing_discovery_server_version }}/stdiscosrv"
+    dest: "{{ syncthing_discovery_server_path }}/stdiscosrv"
+    owner: root
+    group: root
+    mode: 0755
+  when: stdiscosrv_file|failed
+
+- name: Create syncthing-discovery-server.service systemd script
+  template:
+    src: systemd-syncthing-discovery-server.service.j2
+    dest: /etc/systemd/system/syncthing-discovery-server.service
+    owner: root
+    group: root
+    mode: 0644
+  when: stdiscosrv_file|failed
+
+- name: Enable syncthing-discovery-server.service
+  raw: systemctl enable syncthing-discovery-server.service && systemctl start syncthing-discovery-server.service
+  when: stdiscosrv_file|failed

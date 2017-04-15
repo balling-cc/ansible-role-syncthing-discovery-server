@@ -1,0 +1,4 @@
+---
+syncthing_discovery_server_platform: "linux-amd64"
+syncthing_discovery_server_path: /opt/local/sbin
+syncthing_discovery_server_version: stdiscosrv-linux-amd64-v0.14.27-rc.3+7-g75460be
